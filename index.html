@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no" />
+  <meta name="author" content="Tomas Vielma" />
+  <title>Calculadora PagueloFacil</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+  <style>
+    #calculator {
+        width: 100%;
+        max-width: 330px;
+        padding: 10px;
+        margin: auto;
+    }
+  </style>
+</head>
+<body>
+    <div id="calculator" class="text-center">
+        <h1>Calculadora PagueloFacil</h1>
+        <div id="options" class="form-inline">
+            <div class="custom-control custom-checkbox my-1 mr-sm-2">
+                <input type="checkbox" id="isInternational" class="custom-control-input" onchange="modifyIsInternational(event);">
+                <label class="custom-control-label" for="isInternational">Transacción internacional (1%)</label>
+            </div>
+            <div class="custom-control custom-checkbox my-1 mr-sm-2">
+                <input type="checkbox" id="includeWithdrawalFee" class="custom-control-input" onchange="modifyIncludeWithdrawalFee(event);">
+                <label class="custom-control-label" for="includeWithdrawalFee">Incluir comisión de retiro ($1.07)</label>
+            </div>
+        </div>
+        <div class="input-group input-group-lg">
+            <div class="input-group-prepend">
+                <span class="input-group-text" id="receivingAmount-lb">Monto recibido</span>
+            </div>
+            <input type="text" id="receivingAmount" class="form-control" aria-label="Sizing example input" aria-describedby="receivingAmount-lb" onchange="modifyReceivingAmount(event);" onkeyup="modifyReceivingAmount(event);" onpaste="modifyReceivingAmount(event);" oninput="modifyReceivingAmount(event);">
+
+            <div class="input-group-prepend">
+                <span class="input-group-text" id="chargingAmount-lb">Monto a cobrar</span>
+            </div>
+            <input type="text" id="chargingAmount" class="form-control" aria-label="Sizing example input" aria-describedby="chargingAmount-lb" onchange="modifyChargingAmount(event);" onkeyup="modifyChargingAmount(event);" onpaste="modifyChargingAmount(event);" oninput="modifyChargingAmount(event);">
+        </div>
+        <br/>
+        <h3>Comisión</h3>
+        <h4 id="feePct">...</h4>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script>
+    current_data = {
+        "isInternational" : false,
+        "includeWithdrawalFee" : false,
+        "receiving" : 0,
+        "charging" : 0,
+        "feeAmount" : 0,
+        "feePct" : 0,
+    };
+
+    function modifyReceivingAmount(event) {
+        if (isNaN(parseFloat(event.target.value)))
+            current_data['receiving'] = 0;
+        else
+            current_data['receiving'] = parseFloat(event.target.value);
+        renderAll();
+    }
+
+    function modifyChargingAmount(event) {
+        if (isNaN(parseFloat(event.target.value)))
+            current_data['charging'] = 0;
+        else
+            current_data['charging'] = parseFloat(event.target.value);
+        renderAll(false);
+    }
+
+    function modifyIsInternational(event) {
+        current_data['isInternational'] = event.target.checked;
+        renderAll();
+    }
+
+    function modifyIncludeWithdrawalFee(event) {
+        current_data['includeWithdrawalFee'] = event.target.checked;
+        renderAll();
+    }
+
+    function calculateChargingAmount(amount) {
+        isInternational = current_data['isInternational'];
+        fee = Math.round((amount * 0.035 + Number.EPSILON) * 100) / 100;
+        cost_tx = 0.5;
+        fee_int = (isInternational ? Math.round((amount * 0.01 + Number.EPSILON) * 100) / 100 : 0);
+        itbms_serv = Math.round(((fee + cost_tx + fee_int) * 0.07 + Number.EPSILON) * 100) / 100;
+        total_fee = Math.round(((fee + cost_tx + fee_int + itbms_serv) + Number.EPSILON) * 100) / 100;
+        leftover_amount = Math.round(((amount - total_fee) + Number.EPSILON) * 100) / 100;
+        return leftover_amount;
+    }
+
+    function renderAll(modifyingReceiving = true) {
+        if (modifyingReceiving) {
+            includeWithdrawalFee = current_data['includeWithdrawalFee'];
+            amount = current_data['receiving'];
+            amount = (includeWithdrawalFee ? amount + 1.07 : amount);
+            amount = Math.round((amount + Number.EPSILON) * 100) / 100;
+            est = Math.round((((amount+0.535)/0.95185) + Number.EPSILON) * 100) / 100;
+            a = ((calculateChargingAmount(est) > amount) ? -0.01 : 0.01);
+            while (calculateChargingAmount(est) != amount)
+                est += a;
+            document.getElementById('chargingAmount').value = current_data['charging'] = Math.round((est + Number.EPSILON) * 100) / 100;
+            feeAmount = Math.round(((current_data['charging'] - current_data['receiving']) + Number.EPSILON) * 100) / 100;
+            current_data['feeAmount'] = feeAmount;
+            feePct = Math.round(((feeAmount / current_data['charging'] * 100) + Number.EPSILON) * 100) / 100;
+            current_data['feePct'] = feePct;
+            document.getElementById('feePct').innerHTML = '$' + feeAmount + ' (' + feePct + '%)';
+        } else {
+            amount = current_data['charging'];
+            document.getElementById('receivingAmount').value = current_data['receiving'] = calculateChargingAmount(amount);
+            feeAmount = Math.round(((current_data['charging'] - current_data['receiving']) + Number.EPSILON) * 100) / 100;
+            current_data['feeAmount'] = feeAmount;
+            feePct = Math.round(((feeAmount / current_data['charging'] * 100) + Number.EPSILON) * 100) / 100;
+            current_data['feePct'] = feePct;
+            document.getElementById('feePct').innerHTML = '$' + feeAmount + ' (' + feePct + '%)';
+        }
+        
+    }
+
+    window.onload = function() {
+        current_data['isInternational'] = document.getElementById('isInternational').checked;
+        current_data['includeWithdrawalFee'] = document.getElementById('includeWithdrawalFee').checked;
+        if (isNaN(parseFloat(document.getElementById('receivingAmount').value)))
+            current_data['receiving'] = 0;
+        else
+            current_data['receiving'] = parseFloat(document.getElementById('receivingAmount').value);
+        if (isNaN(parseFloat(document.getElementById('chargingAmount').value)))
+            current_data['charging'] = 0;
+        else
+            current_data['charging'] = parseFloat(document.getElementById('chargingAmount').value);
+        renderAll();
+    }
+    </script>
+</body>
+</html>
